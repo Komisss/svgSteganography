@@ -1,0 +1,9 @@
+<svg height="210" width="500">
+   <line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(255,0,0);stroke-width:2" />
+   <line x1="0" y1="0" x2="200" y2="400" style="stroke:rgb(255,0,0);stroke-width:2" />
+   <!-- Example of a polygon with the default fill -->
+  <polygon points="0,100 50,25 50,75 100,0" style="stroke:rgb(255,0,0);stroke-width:2"/>
+
+  <!-- Example of the same polygon shape with stroke and no fill -->
+  <polygon points="100,100 150,25 150,75 200,0" fill="none" stroke="black" />
+</svg> 
