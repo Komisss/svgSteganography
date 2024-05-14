@@ -31,21 +31,16 @@ def create_polyline(line):
     """
 
     x1, y1, x2, y2 = line.attrib["x1"], line.attrib["y1"], line.attrib["x2"], line.attrib["y2"]
-    num_segments = 5  # Количество сегментов ломаной линии
+    num_segments = max([int(x1), int(y1), int(x2), int(y2)]) * 10  # Количество сегментов ломаной линии
 
     polyline = ET.Element("polyline")
 
     for i in range(num_segments + 1):
         if "points" not in polyline.attrib:
-            polyline.attrib["points"] = " ".join([
-            f"{(int(int(x1) + (i / num_segments) * (int(x2) - int(x1))))}",
-            f"{(int(int(y1) + (i / num_segments) * (int(y2) - int(y1))))}"
-        ]) + " "
+            polyline.attrib["points"] = f"{(int(int(x1) + (i / num_segments) * (int(x2) - int(x1))))}," +  f"{(int(int(y1) + (i / num_segments) * (int(y2) - int(y1))))} "
+    
         else:
-            polyline.attrib["points"] += " ".join([
-                f"{(int(int(x1) + (i / num_segments) * (int(x2) - int(x1))))}",
-                f"{(int(int(y1) + (i / num_segments) * (int(y2) - int(y1))))}"
-            ]) + " "
+            polyline.attrib["points"] += f"{(int(int(x1) + (i / num_segments) * (int(x2) - int(x1))))}," + f"{(int(int(y1) + (i / num_segments) * (int(y2) - int(y1))))} "
 
     polyline.attrib["points"] = polyline.attrib["points"].strip()
 
@@ -77,19 +72,19 @@ def embed_message(polyline, message):
     return polyline
 
 
-# Создать окно tkinter
-root = tk.Tk()
+# # Создать окно tkinter
+# root = tk.Tk()
 
-# Создать экземпляр кастомного виджета отображения SVG
-svg_canvas = SvgCanvas(root)
-svg_canvas.pack()
+# # Создать экземпляр кастомного виджета отображения SVG
+# svg_canvas = SvgCanvas(root)
+# svg_canvas.pack()
 
-# Загрузить SVG-изображение
-svg_path = "table.png"
-svg_canvas.load_svg(svg_path)
+# # Загрузить SVG-изображение
+# svg_path = "table.png"
+# svg_canvas.load_svg(svg_path)
 
-# Запустить главное окно
-root.mainloop()
+# # Запустить главное окно
+# root.mainloop()
 
 # Загружаем SVG-файл
 tree = ET.parse("output.svg")
@@ -103,9 +98,15 @@ lines = svg.findall("line")
 for line in lines:
     polyline = create_polyline(line)
     #embed_message(polyline, "нигер")
-    svg.remove(line)
-    svg.insert(line.index, polyline)
-    svg.replace(line, polyline)
+    line.attrib.pop('x1')
+    line.attrib.pop('y1')
+    line.attrib.pop('x2')
+    line.attrib.pop('y2')
+    line.tag = 'polygon'
+    line.attrib['points'] = polyline.attrib['points']
+    embed_message(polyline, "привет")
+    # Надо в svg как-то запихнуть все polyline  0,0 -> 00000000 00110100 00100000
+    # разбиваем количество символов в сообщении на количество линий. Получаем примерно одинаковые по длине подсообщения и запихиваем их в координаты полигона
 
 # Сохраняем обновленный SVG
 tree.write("output.svg")
