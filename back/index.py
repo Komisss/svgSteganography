@@ -13,24 +13,14 @@ import binascii
 from svglib.svglib import svg2rlg
 import tksvg
 from pathlib import Path
+
+#saveLabels для сохранения ссылки на svg при их выводе на экран 
 saveLabels = []
 x = ''
 tree = ''
 encodedSvg = ''
 
-class SvgCanvas(tk.Canvas):
-    def __init__(self, master, *kwargs):
-        super().__init__(master, *kwargs)
-        self.svg_image = None
-
-    def load_svg(self, svg_path):
-        # Загрузить SVG-изображение из файла
-        image = Image.open(svg_path)
-        self.svg_image = ImageTk.PhotoImage(image)
-
-        # Отобразить SVG-изображение в виджете
-        self.create_image(0, 0, image=self.svg_image, anchor=tk.NW)
-
+#Кодирование и декодирование сообщения
 def text_to_bits(text, encoding='utf-8', errors='surrogatepass'):
     bits = bin(int(binascii.hexlify(text.encode(encoding, errors)), 16))[2:]
     return bits.zfill(8 * ((len(bits) + 7) // 8))
@@ -44,6 +34,7 @@ def int2bytes(i):
     n = len(hex_string)
     return binascii.unhexlify(hex_string.zfill(n + (n & 1)))
 
+#Преобразование линии в полигон
 def create_polyline(line):
     """Создает ломаную линию из прямой линии.
 
@@ -70,22 +61,12 @@ def create_polyline(line):
 
     return polyline
 
-
+#Встраивание сообщения в координаты промежуточных узлов ломаной. Выводит элемент ломаной линии в дереве SVG с внедренным сообщением.
 def embed_message(polyline, message):
-    """Встраивает сообщение в координаты промежуточных узлов ломаной.
-
-    Args:
-        polyline: элемент ломаной линии в дереве SVG.
-        message: сообщение для встраивания.
-
-    Returns:
-        Элемент ломаной линии в дереве SVG с внедренным сообщением.
-    """
-
     # Преобразуем сообщение в биты
     bits = text_to_bits(message)
 
-    # Встраиваем биты в наименее значимые биты координат
+    # Встраиваем биты сообщения в наименее значимые биты координат
     points = polyline.attrib["points"].split()
     newPoints = ''
     for i, bit in enumerate(bits):
@@ -97,15 +78,39 @@ def embed_message(polyline, message):
     polyline.attrib["points"] = points
     return polyline
 
+#Кодирование сообщения
+def encodeMessage():
+    # Загружаем SVG-файл
+    svg = tree.getroot()
+
+    # Находим все прямые линии в SVG 
+    lines = svg.findall("line")
+    # Преобразуем прямые линии в ломаные и внедряем сообщение
+    colAdded = False
+    for line in lines:
+        polyline = create_polyline(line)
+        line.attrib.pop('x1')
+        line.attrib.pop('y1')
+        line.attrib.pop('x2')
+        line.attrib.pop('y2')
+        line.tag = 'polygon'
+        if (not colAdded):
+            line.attrib['col'] = str(len(text_to_bits(enterMessage.get("1.0", END))))
+            colAdded = not colAdded
+        newPolyline = embed_message(polyline, enterMessage.get("1.0", END))
+        line.attrib['points'] = ' '.join(newPolyline.attrib['points'])
+        # Надо в svg как-то запихнуть все polyline  0,0 -> 00000000 00110100 00100000
+        # разбиваем количество символов в сообщении на количество линий. Получаем примерно одинаковые по длине подсообщения и запихиваем их в координаты полигона
+    tree.write("output.svg")
+    pathToOutputFile = os.path.abspath(os.curdir) + '\output.svg'
+    global encodedSvg
+    encodedSvg = tksvg.SvgImage(file=pathToOutputFile)
+    label = tk.Label(image=encodedSvg, height=300, width=300, background="#FFCDD2")
+    label.grid(row=0, column=2)
+    saveLabels.append(encodedSvg)
+
+#Раскодирование сообщения
 def decodeMessage(polygons, bitsLength):
-    """Встраивает сообщение в координаты промежуточных узлов ломаной.
-
-    Args:
-        svg: SVG.
-
-    Returns:
-        Раскодированное сообщение.
-    """
     lsbMessage = ''
     bitsCount = 0
     for polygon in polygons:
@@ -133,40 +138,11 @@ def open_img():
     x = openfn()
     tree = ET.parse(x)
     svg_image = tksvg.SvgImage(file=x)
-    label = tk.Label(image=svg_image)
+    label = tk.Label(image=svg_image, height=300, width=300, background="#FFCDD2", borderwidth=5, relief="groove")
     label.grid(row=0, column=0)
     saveLabels.append(svg_image)
 
-def encodeMessage():
-    # Загружаем SVG-файл
-    svg = tree.getroot()
-
-    # Находим все прямые линии в SVG 
-    lines = svg.findall("line")
-    # Преобразуем прямые линии в ломаные и внедряем сообщение
-    colAdded = False
-    for line in lines:
-        polyline = create_polyline(line)
-        line.attrib.pop('x1')
-        line.attrib.pop('y1')
-        line.attrib.pop('x2')
-        line.attrib.pop('y2')
-        line.tag = 'polygon'
-        if (not colAdded):
-            line.attrib['col'] = str(len(text_to_bits(message.get())))
-            colAdded = not colAdded
-        newPolyline = embed_message(polyline, message.get())
-        line.attrib['points'] = ' '.join(newPolyline.attrib['points'])
-        # Надо в svg как-то запихнуть все polyline  0,0 -> 00000000 00110100 00100000
-        # разбиваем количество символов в сообщении на количество линий. Получаем примерно одинаковые по длине подсообщения и запихиваем их в координаты полигона
-    tree.write("output.svg")
-    pathToOutputFile = os.path.abspath(os.curdir) + '\output.svg'
-    global encodedSvg
-    encodedSvg = tksvg.SvgImage(file=pathToOutputFile)
-    label = tk.Label(image=encodedSvg)
-    label.grid(row=0, column=2)
-    saveLabels.append(encodedSvg)
-
+#Скачивание закодированной svg
 def downloadSvg():
     downloads_path = str(Path.home() / "Downloads")
     first_date = datetime.datetime(1970, 1, 1)
@@ -174,21 +150,103 @@ def downloadSvg():
     seconds = int(time_since.total_seconds())
     tree.write(downloads_path + f'\\output{seconds}.svg')
     
+#Декодирование svg
 def decodeSvg():
     svg = tree.getroot()
     polygons = svg.findall("polygon")
-    # + 1, потому что иначе декодирование не работает (хз почему) УДАЛИТЬ ОБЯЗАТЕЛЬНО!!!
     global decodedMessage
     decodedMessage = decodeMessage(polygons, int(polygons[0].attrib.get('col')))
-    decodMessage.insert(0, decodedMessage)
+    decodMessage.delete("1.0", END)
+    decodMessage.insert("1.0", decodedMessage)
 
+
+focusBorderImageData = '''
+    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
+    Ry/99NIz//oGrZpUUEAAOw==
+'''
+
+borderImageData = '''
+    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
+'''
 
 # Создать окно tkinter
 root = Tk()
 message = StringVar()
 decodedMessage = StringVar()
-root.title("Приложение на Tkinter")     # устанавливаем заголовок окна
+root.title("Стеганография")     # устанавливаем заголовок окна
 root.geometry("1200x950")    # устанавливаем размеры окна
+root.configure(bg='#A6CAC7')
 label = Label(text="Стеганография СВГ") # создаем текстовую метку
 
 for c in range(3): root.columnconfigure(index=c, weight=1)
@@ -196,22 +254,28 @@ for r in range(5): root.rowconfigure(index=r, weight=1)
  
 
 #btnDownload = ttk.Button(text="Загрузить", command=click)
-btnDownload = Button(root, text='open image', command=open_img)
+loadImage = tk.PhotoImage(file="images/Download.png")
+btnDownload = Button(root, relief='flat', bg='#A6CAC7', image=loadImage, command=open_img)
 btnDownload.grid(row=1, column=0)
 
-btnUpload = ttk.Button(text="Выгрузить", command=downloadSvg)
+uploadImage = tk.PhotoImage(file="images/Upload.png")
+btnUpload = ttk.Button(relief='flat', bg='#A6CAC7', image=uploadImage, command=downloadSvg)
 btnUpload.grid(row=1, column=2)
 
-btnEncode = ttk.Button(text="Кодировать", command=encodeMessage)
+encodeImage = tk.PhotoImage(file="images/Encode.png")
+btnEncode = ttk.Button(relief='flat', bg='#A6CAC7', image=encodeImage, command=encodeMessage)
 btnEncode.grid(row=2, column=1)
 
-btnDecode = ttk.Button(text="Декодировать", command=decodeSvg)
+decodeImage = tk.PhotoImage(file="images/Decode.png")
+btnDecode = ttk.Button(relief='flat', bg='#A6CAC7', image=decodeImage, command=decodeSvg)
 btnDecode.grid(row=3, column=1)
 
-enterMessage = ttk.Entry(textvariable=message)
+borderImage = tk.PhotoImage("borderImage", data=borderImageData)
+focusBorderImage = tk.PhotoImage("focusBorderImage", data=focusBorderImageData)
+enterMessage = ttk.Text(height=5, width=30, padx='10px', pady='10px', bg='#EEE6DD', fg='#1D5B58', font='Arial 17')
 enterMessage.grid(row=4, column=0)
 
-decodMessage = ttk.Entry()
+decodMessage = ttk.Text(height=5, width=30, padx='10px', pady='10px', bg='#EEE6DD', fg='#1D5B58', font='Arial 17')
 decodMessage.grid(row=4, column=2)
 
 
